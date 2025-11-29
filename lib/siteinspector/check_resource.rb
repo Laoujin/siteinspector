@@ -40,7 +40,14 @@ module Siteinspector
     # @param type [String] Crawler::RESOURCE_TYPES
     # @return [WebsiteResource]
     def load_or_update_resource!(resource, url, type)
-      resp = Crawler::Conn.call(type == Crawler::LINK ? :get : :head, url)
+      method = type == Crawler::LINK ? :get : :head
+      resp = Crawler::Conn.call(method, url)
+
+      # Fallback: if HEAD request returns 404, retry with GET
+      # Some servers (like nuget.org) don't support HEAD properly
+      if method == :head && resp.response_code == 404
+        resp = Crawler::Conn.call(:get, url)
+      end
 
       resource.update!(effective_url: resp.effective_url,
                        status: Crawler.fetch_status(resp),
